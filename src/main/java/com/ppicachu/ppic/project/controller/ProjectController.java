@@ -1,12 +1,12 @@
 package com.ppicachu.ppic.project.controller;
 
 import java.io.File;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import javax.servlet.http.HttpSession;
 
-import org.apache.ibatis.reflection.SystemMetaObject;
 import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -26,10 +26,13 @@ import com.ppicachu.ppic.project.model.service.ProjectService;
 import com.ppicachu.ppic.project.model.vo.Project;
 import com.ppicachu.ppic.project.model.vo.ProjectParticipant;
 import com.ppicachu.ppic.project.model.vo.Task;
+import org.slf4j.*;
 
 @Controller
 public class ProjectController {
 
+	public static Logger logger = LoggerFactory.getLogger(ProjectController.class);
+	
 	@Autowired
 	private ProjectService pService;
 	
@@ -39,14 +42,21 @@ public class ProjectController {
 	// 로그인유저의 프로젝트 리스트 조회
 	@RequestMapping("list.pr")
 	public ModelAndView selectProjectList(@RequestParam(value="no")int userNo, ModelAndView mv) {
-		// 프로젝트 리스트
-		ArrayList<Project> pList = pService.selectProjectList(userNo);
-		// 부서 전체, 직원 전체
-		ArrayList<Department> dList = mService.selectDeptList();
-		ArrayList<Member> mList = mService.selectListMember();
 		
+		try {
+			// 프로젝트 리스트
+			ArrayList<Project> pList = pService.selectProjectList(userNo);
+			// 부서 전체, 직원 전체
+			ArrayList<Department> dList = mService.selectDeptList();
+			ArrayList<Member> mList = mService.selectListMember();
+			
+			
+			mv.addObject("pList", pList).addObject("dList", dList).addObject("mList", mList).setViewName("project/currentProject");
+			
+		}catch(Exception e) {
+			logger.error("프로젝트 리스트 조회 에러 : {}", e.getMessage());
+	    }
 		
-		mv.addObject("pList", pList).addObject("dList", dList).addObject("mList", mList).setViewName("project/currentProject");
 		return mv;
 	}
 	
@@ -54,12 +64,12 @@ public class ProjectController {
 	// 프로젝트 상세정보 조회
 	@ResponseBody
 	@RequestMapping(value="detail.pr", produces="application/json; charset=UTF-8")
-	public String selectProjectParticipants(int projectNo) {
+	public String selectProjectParticipants(String projectNo) {
 		//Project p = pService.selectProjectList(projectNo);
 		// 프로젝트 참여자 리스트
-		ArrayList<ProjectParticipant> ppList = pService.selectProjectParticipants(projectNo);
+		ArrayList<ProjectParticipant> ppList = pService.selectProjectParticipants(Integer.parseInt(projectNo));
 		// task 리스트
-		ArrayList<Task> tList = pService.selectTaskList(projectNo);
+		ArrayList<Task> tList = pService.selectTaskList(Integer.parseInt(projectNo));
 		// task 참조자 리스트
 		ArrayList<ArrayList<ProjectParticipant>> tpList = pService.selectTaskParticipants(tList);
 		
@@ -102,29 +112,36 @@ public class ProjectController {
 	public String addProject(Project p, String projectManagerDept, 
 							 String[] selectUserNo, String[] selectUserDept,
 							 HttpSession session, Model model) {
-		// 프로젝트 추가
-		int projectCurrval = pService.insertProject(p);
-		// 참여자 추가
-		ArrayList<ProjectParticipant> ppList = new ArrayList<>();
-		for(int i=0; i<selectUserNo.length; i++) {
-			ProjectParticipant pp = new ProjectParticipant();
-			pp.setUserNo(selectUserNo[i]);
-			pp.setDepartmentNo(selectUserDept[i]);
-			pp.setPmStatus("N");
-			pp.setProjectNo(projectCurrval);
-			ppList.add(pp);
+
+		int result = 0;
+		
+		try {
+			// 프로젝트 추가
+			int projectCurrval = pService.insertProject(p);
+			// 참여자 추가
+			ArrayList<ProjectParticipant> ppList = new ArrayList<>();
+			for(int i=0; i<selectUserNo.length; i++) {
+				ProjectParticipant pp = new ProjectParticipant();
+				pp.setUserNo(selectUserNo[i]);
+				pp.setDepartmentNo(selectUserDept[i]);
+				pp.setPmStatus("N");
+				pp.setProjectNo(projectCurrval);
+				ppList.add(pp);
+			}
+			
+			// pm 추가
+			ProjectParticipant pm = new ProjectParticipant();
+			pm.setUserNo(p.getProjectManager());
+			pm.setDepartmentNo(projectManagerDept);
+			pm.setPmStatus("Y");
+			pm.setProjectNo(projectCurrval);
+			ppList.add(pm);
+			
+			result = pService.insertProjectParticipants(ppList);
+			
+		}catch(Exception e) {
+			logger.error("프로젝트 생성 에러 : {}", e.getMessage());
 		}
-		
-		// pm 추가
-		ProjectParticipant pm = new ProjectParticipant();
-		pm.setUserNo(p.getProjectManager());
-		pm.setDepartmentNo(projectManagerDept);
-		pm.setPmStatus("Y");
-		pm.setProjectNo(projectCurrval);
-		ppList.add(pm);
-		
-		
-		int result = pService.insertProjectParticipants(ppList);
 		
 		if(result > 0) {
 			session.setAttribute("alertMsg", "프로젝트가 생성되었습니다.");
@@ -133,7 +150,6 @@ public class ProjectController {
 			model.addAttribute("errorMsg", "프로젝트 생성 실패");
 			return "common/errorPage";
 		}
-		
 		
 	}
 	
@@ -145,10 +161,6 @@ public class ProjectController {
 								HttpSession session, Model model) {
 		// 프로젝트 업데이트
 		int result = pService.updateProject(p);
-		System.out.println("프젝정보: " + p);
-		System.out.println("선택유저" +Arrays.toString(selectUserNo));
-		System.out.println("선택부서:"+Arrays.toString(selectUserDept));
-		System.out.println(projectManagerDept);
 		
 		int result2 = 0;
 		int result3 = 0;

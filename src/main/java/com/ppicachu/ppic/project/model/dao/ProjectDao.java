@@ -12,7 +12,7 @@ import com.ppicachu.ppic.project.model.vo.Task;
 
 @Repository
 public class ProjectDao {
-
+	
 	public ArrayList<Project> selectProjectList(SqlSessionTemplate sqlSession, int userNo) {
 		return (ArrayList)sqlSession.selectList("projectMapper.selectProjectList", userNo); 
 	}
