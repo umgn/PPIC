@@ -296,7 +296,7 @@
           $(e).siblings().removeClass("active");
           
           projectNo = $(e).find("input[name=projectNo]").val();
-          console.log(projectNo);
+          
           $("#deleteProjForm input[name=projectNo]").val(projectNo);
           projectName = $(e).find(".project-title").text();
           $("#p-title").html("<b>" + projectName + "</b>");
@@ -355,12 +355,31 @@
                 let task3 = "";
                 let task4 = "";
                 let taskValue = "";
+                let taskNo = ""; 
+                let taskRefList = [];
 
                 for(let i=0; i<tList.length; i++){
-
-                  // 상태별 div
+                  
+                  taskNo = tList[i].taskNo;
+                  // popover할 요소 만들기
+                  taskRefList[taskNo] = "";
+                  for (let j=0; j<tpList.length; j++) {
+                    for (let k=0; k<tpList[j].length; k++) {
+                      if(tpList[j][k].taskNo == taskNo){
+                        if(tpList[j][k].profileImg == null){
+                          tpList[j][k].profileImg = noneProfile;
+                        }
+                          taskRefList[taskNo] += "<div><img class='tp-profileImg' src='"
+                                             + tpList[j][k].profileImg + "'>"
+                                             + tpList[j][k].userName + " "
+                                             + tpList[j][k].positionName + "</div>";
+                      }
+                    }
+                  }
+                  
+                  // 상태별 div .task-box 만들기
                   taskValue = "<div class='task-box' onclick='taskDetailLoad(this)'>"
-                         + "<input type='hidden' name='taskNo' value='" + tList[i].taskNo + "'>"
+                         + "<input type='hidden' name='taskNo' value='" + taskNo + "'>"
                          + "<div class='task-title'>" + tList[i].taskName + "</div>"
                          + "<input type='hidden' name='assignUser' value='" + tList[i].assignUser + "'>";
                   
@@ -396,12 +415,24 @@
                               break;
                   }
                   
+                  
                 }
 
                 $("#task-list .wait-list").append(task1);
                 $("#task-list .working-list").append(task2);
                 $("#task-list .done-list").append(task3);
                 $("#task-list .hold-list").append(task4);
+
+
+                $(".ref-people").each(function() {
+                  var popNo = $(this).siblings("input[name=taskNo]").val();
+                  $(this).popover({
+                    html: true,
+                    content: taskRefList[popNo],
+                    placement: "right",
+                    trigger: "hover"
+                  });
+                });
                 
                 // 진행률 표시
                 taskProgress();
@@ -424,11 +455,6 @@
         </c:if>
       </form>
 
-      <script>
-        $(function(){
-          
-        })
-      </script>
 
       <div class="p-summary">
         <div id="p-detail"></div>
@@ -536,46 +562,6 @@
         </div>
       </div>
       <br><br><br>
-
-      <script>
-        // 참조인 리스트 popover
-        let taskNo = "";
-        let taskRefList = "";
-        $(document).on("mouseenter", ".ref-people", function(){
-          
-          hoverEl = $(this);
-          taskRefList = ""; // 리셋
-          taskNo = $(this).siblings("input[name=taskNo]").val();
-          
-          for (let i=0; i<tpList.length; i++) {
-            for (let j=0; j<tpList[i].length; j++) {
-              if(tpList[i][j].taskNo == taskNo){
-                if(tpList[i][j].profileImg == null){
-                  tpList[i][j].profileImg = noneProfile;
-                }
-                  taskRefList += "<div><img class='tp-profileImg' src='"
-                               + tpList[i][j].profileImg + "'>"
-                               + tpList[i][j].userName + " "
-                               + tpList[i][j].positionName + "</div>";
-                }
-            }
-              
-          }
-
-          hoverEl.popover ({
-            html: true,
-            // container:"body",
-            content: taskRefList,
-            // selector:true,
-            content:taskRefList,
-            placement:"right",
-            trigger:"hover"
-          })
-          
-        })
-        
-        
-      </script>
 
       <!-- drag&drop sorting -->
       <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
@@ -1254,6 +1240,7 @@
           // task 참조자 셀렉트
           $("#selected-area4").empty();
 
+          // 기존에 선택된 참조자 리스트 보여주기
           let selectedUserList = "";
           for (let i = 0; i < tpList.length; i++) {
             for (let j = 0; j < tpList[i].length; j++) {
@@ -1275,7 +1262,6 @@
           }
           $("#selected-area4").html(selectedUserList);
           
-          // 기존에 선택된 참조자 리스트 보여주기
           $("#emp-select2").change(function(){
             $(".invalidMsg").css("display", "none");
             selectUserDept = $("#emp-select2 option:selected").attr("value2");
