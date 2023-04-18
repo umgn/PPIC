@@ -159,54 +159,57 @@ public class ProjectController {
 								@RequestParam(name="selectUserNo")String[] selectUserNo,
 								@RequestParam(name="selectUserDept")String[] selectUserDept,
 								HttpSession session, Model model) {
-		// 프로젝트 업데이트
-		int result = pService.updateProject(p);
 		
-		int result2 = 0;
-		int result3 = 0;
-		int result4 = 0;
-			// 현재 task 참조자 조회(작업 담당자 제외)
-			ArrayList<ProjectParticipant> currentTaskRefUser = pService.selectTaskRefUser(p.getProjectNo());
-			ArrayList<ProjectParticipant> updateTaskRefUser = new ArrayList<>();
-			// 업데이트된 유저중 기존에 참조하고 있던 작업이 있는지 확인
-			for(int i=0; i<selectUserNo.length; i++) {
-				for(int j=0; j<currentTaskRefUser.size(); j++) {
-					if(currentTaskRefUser.get(j).getUserNo().equals(selectUserNo[i])) {
-						ProjectParticipant tp = new ProjectParticipant();
-						tp.setUserNo(selectUserNo[i]);
-						tp.setDepartmentNo(selectUserDept[j]);
-						tp.setProjectNo(p.getProjectNo());
-						updateTaskRefUser.add(tp);
-					}
+		// 현재 task 참조자 조회(작업 담당자 제외)
+		ArrayList<ProjectParticipant> currentTaskRefUser = pService.selectTaskRefUser(p.getProjectNo());
+		logger.info("currentTaskRefUser : " + currentTaskRefUser);
+		
+		ArrayList<ProjectParticipant> updateTaskRefUser = new ArrayList<>();
+		// 업데이트된 유저중 기존에 참조하고 있던 작업이 있는지 확인
+		for(int i=0; i<selectUserNo.length; i++) {
+			for(int j=0; j<currentTaskRefUser.size(); j++) {
+				if(currentTaskRefUser.get(j).getUserNo().equals(selectUserNo[i])) {
+					ProjectParticipant tp = new ProjectParticipant();
+					tp.setUserNo(selectUserNo[i]);
+					tp.setDepartmentNo(selectUserDept[i]);
+					tp.setProjectNo(p.getProjectNo());
+					tp.setTaskNo(currentTaskRefUser.get(j).getTaskNo());
+					tp.setTaskAssign("N");
+					updateTaskRefUser.add(tp);
 				}
 			}
-			// 기존 참여자 정보 삭제(작업 담당자 제외)
-			result2 = pService.deleteProjectParticipants(p.getProjectNo());
-			// task 참조자 추가
-			result3 = pService.insertTaskParticipants(updateTaskRefUser);
+		}
+		logger.info("updateTaskRefUser : " + updateTaskRefUser);
 		
-			// 프로젝트 참여자 전체 추가
-			ArrayList<ProjectParticipant> ppList = new ArrayList<>();
-			for(int i=0; i<selectUserNo.length; i++) {
-				ProjectParticipant pp = new ProjectParticipant();
-				pp.setProjectNo(p.getProjectNo());
-				pp.setUserNo(selectUserNo[i]);
-				pp.setDepartmentNo(selectUserDept[i]);
-				pp.setPmStatus("N");
-				ppList.add(pp);
-			}
+		// 기존 참여자 정보 삭제(작업 담당자 제외)
+		int result1 = pService.deleteProjectParticipants(p.getProjectNo());
+		// task 참조자 추가
+		int result2 = pService.insertTaskParticipants(updateTaskRefUser);
+	
+		// 프로젝트 참여자 전체 추가
+		ArrayList<ProjectParticipant> ppList = new ArrayList<>();
+		for(int i=0; i<selectUserNo.length; i++) {
+			ProjectParticipant pp = new ProjectParticipant();
+			pp.setProjectNo(p.getProjectNo());
+			pp.setUserNo(selectUserNo[i]);
+			pp.setDepartmentNo(selectUserDept[i]);
+			pp.setPmStatus("N");
+			ppList.add(pp);
+		}
+		
+		// pm 추가
+		ProjectParticipant pm = new ProjectParticipant();
+		pm.setProjectNo(p.getProjectNo());
+		pm.setUserNo(p.getProjectManager());
+		pm.setDepartmentNo(String.valueOf(projectManagerDept));
+		pm.setPmStatus("Y");
+		ppList.add(pm);
+		int result3 = pService.insertProjectParticipants(ppList);
+	
+		// 프로젝트 업데이트
+		int result4 = pService.updateProject(p);
 			
-			// pm 추가
-			ProjectParticipant pm = new ProjectParticipant();
-			pm.setProjectNo(p.getProjectNo());
-			pm.setUserNo(p.getProjectManager());
-			pm.setDepartmentNo(String.valueOf(projectManagerDept));
-			pm.setPmStatus("Y");
-			ppList.add(pm);
-			System.out.println(ppList);
-			result4 = pService.insertProjectParticipants(ppList);
-		
-		if(result*result4 > 0) {
+		if(result3*result4 > 0) {
 			session.setAttribute("alertMsg", "프로젝트가 수정되었습니다.");
 			return "redirect:list.pr?no=" + ((Member)session.getAttribute("loginUser")).getUserNo();
 		}else {
@@ -216,38 +219,6 @@ public class ProjectController {
 		
 	}
 		
-	/*
-	// task참조자 리스트
-	@ResponseBody
-	@RequestMapping(value="tpList.tk", produces="application/json; charset=UTF-8")
-	public String selectTaskParticipants(int taskNo) {
-		// task 참조자 리스트
-		ArrayList<ProjectParticipant> tpList = pService.selectTaskParticipants(taskNo);
-		
-		JSONObject jObj = new JSONObject();
-		jObj.put("tpList", tpList);
-		
-		return new Gson().toJson(jObj);
-	}
-	
-	
-	// 프로젝트에 참여중인 부서/멤버 조회
-	@ResponseBody
-	@RequestMapping(value="selectList.tk", produces="application/json; charset=UTF-8")
-	public String selectEmployeesList(int projectNo, int userNo) {
-		HashMap<String, Integer> map = new HashMap<>();
-		map.put("projectNo", projectNo);
-		map.put("userNo", userNo);
-		
-		ArrayList<ProjectParticipant> dList = pService.selectDeptList(map);
-		ArrayList<ProjectParticipant> eList = pService.selectEmployeesList(map);
-		JSONObject jObj = new JSONObject();
-		jObj.put("dList", dList);
-		jObj.put("eList", eList);
-		
-		return new Gson().toJson(jObj);
-	}*/
-	
 	
 	// task 추가
 	@RequestMapping("addTask.tk")
